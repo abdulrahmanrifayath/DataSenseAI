@@ -1,22 +1,22 @@
-"""Automated business recommendations engine."""
+"""Business Recommendation Engine module."""
 
-from typing import List, Dict, Any
 from datasense.utilities.logger import get_logger
+from datasense.recommendations.schemas import (
+    RecommendationPriority,
+    RecommendationItem,
+    RecommendationReport,
+    RecommendationRequest,
+    RecommendationResponse,
+)
+from datasense.recommendations.engine import BusinessRecommendationEngine
 
 logger = get_logger("recommendations")
 
-
-class BusinessRecommendationEngine:
-    """Translates predictive analytics outputs into actionable business recommendations."""
-
-    def __init__(self):
-        logger.info("Initialized BusinessRecommendationEngine.")
-
-    def generate_recommendations(self, insights: Dict[str, Any]) -> List[str]:
-        """Generates strategic recommendation insights stub."""
-        logger.info("Generating business recommendations stub.")
-        return [
-            "Optimize inventory levels based on demand forecasts.",
-            "Target high-value customer segments with personalized retention campaigns.",
-            "Investigate flagged data anomalies in recent transactions.",
-        ]
+__all__ = [
+    "BusinessRecommendationEngine",
+    "RecommendationPriority",
+    "RecommendationItem",
+    "RecommendationReport",
+    "RecommendationRequest",
+    "RecommendationResponse",
+]

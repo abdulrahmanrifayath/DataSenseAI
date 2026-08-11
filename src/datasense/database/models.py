@@ -164,6 +164,38 @@ class BIRecord(Base):
     )
 
 
+class XAIExplanationRecord(Base):
+    """Stored Explainable AI (SHAP) run metadata and report."""
+
+    __tablename__ = "xai_explanation_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    model_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    task_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    report: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False
+    )
+
+
+class BusinessRecommendationRecord(Base):
+    """Stored Business Recommendations run metadata and report."""
+
+    __tablename__ = "business_recommendation_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    dataset_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    total_recommendations: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    critical_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    report: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False
+    )
+
+
+
 
 
 

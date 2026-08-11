@@ -36,6 +36,11 @@ from datasense.anomaly_detection.detector import AnomalyDetector
 from datasense.anomaly_detection.schemas import AnomalyConfig, AnomalyMethod, AnomalyReport
 from datasense.bi.engine import BIEngine
 from datasense.bi.schemas import ColumnMappingConfig, BIAnalysisReport
+from datasense.xai.service import XAIExplanationService
+from datasense.xai.schemas import XAIReport
+from datasense.recommendations.engine import BusinessRecommendationEngine
+from datasense.recommendations.schemas import RecommendationReport, RecommendationPriority
+
 
 
 
@@ -154,9 +159,12 @@ nav_option = st.sidebar.radio(
         "Time-Series Forecasting",
         "Anomaly Detection",
         "Business Intelligence & Analytics",
+        "Model Explainability & SHAP",
+        "Business Recommendations Engine",
         "System Diagnostics",
     ],
 )
+
 
 
 
@@ -1392,11 +1400,206 @@ elif nav_option == "Business Intelligence & Analytics":
                     cl3.metric("Top CLV Segment", cl.top_clv_segment)
 
 
+elif nav_option == "Model Explainability & SHAP":
+    st.markdown('<div class="main-header">Model Explainability & SHAP Analytics</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Global Feature Importance, Local Per-Instance Prediction Attributions, & Top Positive/Negative Drivers</div>', unsafe_allow_html=True)
+
+    xai_df = st.session_state.get("active_df", None)
+
+    if xai_df is None or xai_df.empty:
+        st.warning("⚠️ No active dataset found. Please upload a dataset in 'Data Ingestion & Validation' or upload a file below.")
+        uploaded_file_xai = st.file_uploader("Upload CSV dataset for Model Explainability", type=["csv", "xlsx"], key="xai_uploader")
+        if uploaded_file_xai is not None:
+            try:
+                file_bytes = uploaded_file_xai.read()
+                xai_df = DataIngestionService.ingest_file(file_bytes=file_bytes, filename=uploaded_file_xai.name)
+                st.session_state["active_df"] = xai_df
+                st.success(f"Dataset loaded: {xai_df.shape[0]} rows × {xai_df.shape[1]} columns.")
+            except Exception as exc:
+                st.error(f"Error loading dataset: {exc}")
+
+    if xai_df is not None and not xai_df.empty:
+        num_cols = [c for c in xai_df.columns if pd.api.types.is_numeric_dtype(xai_df[c])]
+
+        col1, col2 = st.columns(2)
+        with col1:
+            target_col_xai = st.selectbox("Target Column for Prediction Explanation:", options=num_cols if num_cols else list(xai_df.columns), index=0)
+        with col2:
+            row_idx_xai = st.slider("Select Instance Row Index for Local Explanation:", min_value=0, max_value=max(0, len(xai_df) - 1), value=0)
+
+        st.divider()
+
+        if st.button("🧠 Compute SHAP Model Explanations", type="primary", use_container_width=True):
+            with st.spinner("Fitting surrogate model and computing SHAP values..."):
+                try:
+                    num_feats = [c for c in num_cols if c != target_col_xai]
+                    X_num = xai_df[num_feats].fillna(xai_df[num_feats].median()).to_numpy()
+                    y_num = xai_df[target_col_xai].to_numpy()
+
+                    task_type = determine_task_type(xai_df[target_col_xai])
+                    if task_type == "classification":
+                        model_xai = RandomForestClassifier(n_estimators=50, random_state=42)
+                    else:
+                        model_xai = RandomForestRegressor(n_estimators=50, random_state=42)
+
+                    model_xai.fit(X_num, y_num)
+
+                    service = XAIExplanationService()
+                    report: XAIReport = service.explain(
+                        model=model_xai,
+                        X_df=pd.DataFrame(X_num, columns=num_feats),
+                        feature_names=num_feats,
+                        task_type=task_type,
+                        instance_indices=[row_idx_xai, min(1, len(xai_df)-1)],
+                    )
+                    st.session_state["xai_report"] = report
+                    st.success("✅ SHAP model explanations computed successfully!")
+                except Exception as xai_err:
+                    st.error(f"SHAP explanation failed: {xai_err}")
+
+        if "xai_report" in st.session_state:
+            report: XAIReport = st.session_state["xai_report"]
+            st.divider()
+
+            # Global Feature Importance Chart
+            if report.summary_chart_plotly_json:
+                st.markdown("#### 🌐 Global Feature Importance (Mean |SHAP Value|)")
+                fig_glob = go.Figure(json.loads(report.summary_chart_plotly_json))
+                st.plotly_chart(fig_glob, use_container_width=True)
+
+            # Local Explanation for selected instance
+            if report.sample_local_explanations:
+                local_exp = report.sample_local_explanations[0]
+                st.markdown(f"#### 🔍 Local Instance Explanation (Row #{local_exp.instance_index})")
+
+                c1, c2 = st.columns(2)
+                c1.metric("Base Value E[f(X)]", local_exp.base_value)
+                c2.metric("Prediction Value f(X_i)", local_exp.prediction_value)
+
+                st.write("")
+
+                pos_col, neg_col = st.columns(2)
+                with pos_col:
+                    st.markdown("##### 🟢 Top Positive Drivers (+ Increases Output)")
+                    if local_exp.top_positive_features:
+                        pos_df = pd.DataFrame([f.model_dump() for f in local_exp.top_positive_features])
+                        st.dataframe(pos_df[["feature_name", "feature_value", "shap_value"]], use_container_width=True)
+                    else:
+                        st.info("No positive contributing features for this instance.")
+
+                with neg_col:
+                    st.markdown("##### 🔴 Top Negative Drivers (- Decreases Output)")
+                    if local_exp.top_negative_features:
+                        neg_df = pd.DataFrame([f.model_dump() for f in local_exp.top_negative_features])
+                        st.dataframe(neg_df[["feature_name", "feature_value", "shap_value"]], use_container_width=True)
+                    else:
+                        st.info("No negative contributing features for this instance.")
+
+                st.markdown("##### 📋 Complete SHAP Feature Contributions")
+                all_df = pd.DataFrame([f.model_dump() for f in local_exp.all_contributions])
+                st.dataframe(all_df, use_container_width=True)
+
+
+elif nav_option == "Business Recommendations Engine":
+    st.markdown('<div class="main-header">Business Recommendation Engine</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Synthesizing EDA, Predictive ML Models, Time-Series Forecasts, Anomaly Detection, BI Analytics, & SHAP into Data-Grounded Executive Actions</div>', unsafe_allow_html=True)
+
+    rec_df = st.session_state.get("active_df", None)
+
+    if st.button("💡 Synthesize & Generate Business Recommendations", type="primary", use_container_width=True):
+        with st.spinner("Synthesizing multi-module analytics and computing evidence-backed recommendations..."):
+            try:
+                engine = BusinessRecommendationEngine()
+                eda_rep = st.session_state.get("eda_report", {}).model_dump() if hasattr(st.session_state.get("eda_report", None), "model_dump") else None
+                ml_rep = st.session_state.get("ml_report", {}).model_dump() if hasattr(st.session_state.get("ml_report", None), "model_dump") else None
+                fc_rep = st.session_state.get("fc_report", {}).model_dump() if hasattr(st.session_state.get("fc_report", None), "model_dump") else None
+                anom_rep = st.session_state.get("anom_report", {}).model_dump() if hasattr(st.session_state.get("anom_report", None), "model_dump") else None
+                bi_rep = st.session_state.get("bi_report", {}).model_dump() if hasattr(st.session_state.get("bi_report", None), "model_dump") else None
+                xai_rep = st.session_state.get("xai_report", {}).model_dump() if hasattr(st.session_state.get("xai_report", None), "model_dump") else None
+
+                report: RecommendationReport = engine.generate_recommendations(
+                    df=rec_df,
+                    eda_report=eda_rep,
+                    ml_report=ml_rep,
+                    forecast_report=fc_rep,
+                    anomaly_report=anom_rep,
+                    bi_report=bi_rep,
+                    xai_report=xai_rep,
+                )
+                st.session_state["recommendation_report"] = report
+                st.success("✅ Business recommendations generated successfully!")
+            except Exception as rec_err:
+                st.error(f"Recommendation generation failed: {rec_err}")
+
+    if "recommendation_report" in st.session_state:
+        report: RecommendationReport = st.session_state["recommendation_report"]
+        st.divider()
+
+        # Priority Metric Breakdown
+        st.markdown("#### 🚨 Recommendation Priority Summary")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Total Recommendations", report.total_recommendations)
+        c2.metric("Critical Priority", report.critical_count)
+        c3.metric("High Priority", report.high_count)
+        c4.metric("Medium/Low Priority", report.total_recommendations - report.critical_count - report.high_count)
+
+        st.divider()
+
+        # Recommendation Feed Cards
+        st.markdown("#### 📋 Actionable Executive Recommendations Feed")
+        for item in report.items:
+            priority_val = item.severity_priority.value if hasattr(item.severity_priority, "value") else str(item.severity_priority)
+            badge_color = {
+                "Critical": "#EF4444",
+                "High": "#F97316",
+                "Medium": "#F59E0B",
+                "Low": "#3B82F6",
+            }.get(priority_val, "#6B7280")
+
+            with st.container():
+                st.markdown(
+                    f"""
+                    <div style="border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px; margin-bottom: 16px; background-color: #F8FAFC;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h4 style="margin: 0; color: #1E293B;">{item.title}</h4>
+                            <div>
+                                <span style="background-color: {badge_color}; color: white; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 12px;">{priority_val} Priority</span>
+                                <span style="background-color: #64748B; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; margin-left: 6px;">{item.source_module}</span>
+                            </div>
+                        </div>
+                        <p style="margin-top: 8px; color: #475569;">{item.explanation}</p>
+                        <div style="background-color: #EFF6FF; border-left: 4px solid #3B82F6; padding: 10px; margin: 10px 0; border-radius: 4px;">
+                            <strong>💡 Empirical Data Evidence:</strong> {item.evidence}
+                        </div>
+                        <div style="display: flex; gap: 16px; font-size: 13px; color: #334155;">
+                            <div><strong>🎯 Affected Metric:</strong> <code>{item.affected_metric}</code></div>
+                        </div>
+                        <div style="margin-top: 10px; background-color: #F0FDF4; border-left: 4px solid #22C55E; padding: 10px; border-radius: 4px;">
+                            <strong>✅ Suggested Action:</strong> {item.suggested_action}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+        # Download CSV
+        rec_rows = [item.model_dump() for item in report.items]
+        rec_df_out = pd.DataFrame(rec_rows)
+        csv_rec = rec_df_out.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Recommendations CSV",
+            data=csv_rec,
+            file_name="datasense_business_recommendations.csv",
+            mime="text/csv",
+        )
+
+
 elif nav_option == "System Diagnostics":
     st.header("System Diagnostics & Backend API Health")
     if health_data:
         st.json(health_data)
     else:
         st.warning("Backend API is currently offline. Running in local Streamlit mode.")
+
 
 
