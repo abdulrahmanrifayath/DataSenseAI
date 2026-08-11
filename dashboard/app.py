@@ -30,6 +30,11 @@ from datasense.ml_models.schemas import (
     RegressionAlgorithm,
     PredictionRequest,
 )
+from datasense.forecasting.engine import ForecastingEngine
+from datasense.forecasting.schemas import ForecastingConfig, ForecastingReport
+from datasense.anomaly_detection.detector import AnomalyDetector
+from datasense.anomaly_detection.schemas import AnomalyConfig, AnomalyMethod, AnomalyReport
+
 
 
 
@@ -143,9 +148,12 @@ nav_option = st.sidebar.radio(
         "Platform Overview",
         "Exploratory Data Analysis",
         "Predictive Modeling & ML",
+        "Time-Series Forecasting",
+        "Anomaly Detection",
         "System Diagnostics",
     ],
 )
+
 
 st.sidebar.divider()
 
@@ -990,9 +998,235 @@ elif nav_option == "Predictive Modeling & ML":
                         st.error(f"Batch prediction error: {batch_err}")
 
 
+elif nav_option == "Time-Series Forecasting":
+    st.markdown('<div class="main-header">Time-Series Forecasting Engine</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Automated Chronological Validation, Missing Date Resampling, Feature Engineering, Multi-Model Forecasting, & 95% Confidence Intervals</div>', unsafe_allow_html=True)
+
+    fc_df = st.session_state.get("active_df", None)
+
+    if fc_df is None or fc_df.empty:
+        st.warning("⚠️ No active dataset found. Please upload a dataset in 'Data Ingestion & Validation' or upload a file below.")
+        uploaded_file_fc = st.file_uploader("Upload CSV dataset for Time-Series Forecasting", type=["csv", "xlsx"], key="fc_uploader")
+        if uploaded_file_fc is not None:
+            try:
+                file_bytes = uploaded_file_fc.read()
+                fc_df = DataIngestionService.ingest_file(file_bytes=file_bytes, filename=uploaded_file_fc.name)
+                st.session_state["active_df"] = fc_df
+                st.success(f"Dataset loaded: {fc_df.shape[0]} rows × {fc_df.shape[1]} columns.")
+            except Exception as exc:
+                st.error(f"Error loading dataset: {exc}")
+
+    if fc_df is not None and not fc_df.empty:
+        cols = list(fc_df.columns)
+        dt_cols = [c for c in cols if pd.api.types.is_datetime64_any_dtype(fc_df[c]) or "date" in c.lower() or "time" in c.lower()]
+        num_cols = [c for c in cols if pd.api.types.is_numeric_dtype(fc_df[c])]
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            date_col = st.selectbox("Date / Time Column:", options=dt_cols if dt_cols else cols, index=0)
+        with col2:
+            target_col = st.selectbox("Numerical Target Column:", options=num_cols if num_cols else cols, index=0)
+        with col3:
+            horizon_val = st.slider("Forecast Horizon (Steps):", min_value=1, max_value=180, value=30, step=1)
+        with col4:
+            freq_val = st.selectbox("Frequency Grid:", options=["auto", "D", "W", "M", "H"])
+
+        selected_models_fc = st.multiselect(
+            "Forecasting Models:",
+            options=["baseline", "prophet", "xgboost"],
+            default=["baseline", "prophet", "xgboost"],
+            format_func=lambda x: {"baseline": "Baseline Exponential Smoothing", "prophet": "Prophet / Seasonal Decomposition", "xgboost": "XGBoost Autoregressive"}[x],
+        )
+
+        st.divider()
+
+        if st.button("📈 Run Time-Series Forecasting Pipeline", type="primary", use_container_width=True):
+            if not selected_models_fc:
+                st.error("Please select at least one forecasting model.")
+            else:
+                with st.spinner("Executing time-series preprocessing, feature engineering, and model training..."):
+                    try:
+                        config = ForecastingConfig(
+                            date_column=date_col,
+                            target_column=target_col,
+                            forecast_horizon=horizon_val,
+                            frequency=freq_val,
+                            selected_models=selected_models_fc,
+                        )
+                        engine = ForecastingEngine()
+                        report: ForecastingReport = engine.run_forecasting(fc_df, config)
+                        st.session_state["fc_report"] = report
+                        st.success("✅ Time-series forecasting completed successfully!")
+                    except Exception as fc_err:
+                        st.error(f"Forecasting failed: {fc_err}")
+
+        if "fc_report" in st.session_state:
+            report: ForecastingReport = st.session_state["fc_report"]
+            st.divider()
+
+            st.success(f"🏆 **BEST FORECAST MODEL:** `{report.best_model_name}` | Frequency: `{report.inferred_frequency}` | Missing Dates Imputed: `{report.missing_dates_detected}`")
+
+            # Metrics Table
+            st.markdown("#### 📊 Forecast Model Metrics Comparison")
+            metrics_rows = []
+            for res in report.results:
+                m = res.test_metrics
+                metrics_rows.append({
+                    "Best": "⭐ BEST" if res.is_best else "",
+                    "Model Name": res.model_name,
+                    "MAE": round(m.mae, 4),
+                    "MSE": round(m.mse, 4),
+                    "RMSE": round(m.rmse, 4),
+                    "MAPE (%)": round(m.mape, 2) if m.mape is not None else "N/A",
+                    "SMAPE (%)": round(m.smape, 2) if m.smape is not None else "N/A",
+                })
+            st.dataframe(pd.DataFrame(metrics_rows), use_container_width=True)
+
+            # Interactive Plotly Chart
+            if report.chart_plotly_json:
+                st.markdown("#### 📈 Historical vs Forecast Interactive Plotly Chart")
+                fig_fc = go.Figure(json.loads(report.chart_plotly_json))
+                st.plotly_chart(fig_fc, use_container_width=True)
+
+            # Forecast Points Table
+            st.markdown(f"#### 🔮 Future Forecast Table ({report.forecast_horizon} Steps)")
+            best_res = next((r for r in report.results if r.is_best), report.results[0])
+            fc_items = [
+                {
+                    "Timestamp": item.timestamp,
+                    "Predicted Forecast": item.predicted_value,
+                    "Lower Bound (95%)": item.lower_bound,
+                    "Upper Bound (95%)": item.upper_bound,
+                }
+                for item in best_res.future_forecast
+            ]
+            fc_table_df = pd.DataFrame(fc_items)
+            st.dataframe(fc_table_df, use_container_width=True)
+
+            csv_fc = fc_table_df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download Forecast CSV",
+                data=csv_fc,
+                file_name="datasense_time_series_forecast.csv",
+                mime="text/csv",
+            )
+
+
+elif nav_option == "Anomaly Detection":
+    st.markdown('<div class="main-header">Automated Anomaly Detection Engine</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Isolation Forest, Z-Score, IQR, & Ensemble Detection with Severity Scoring and Top Feature Attribution</div>', unsafe_allow_html=True)
+
+    anom_df = st.session_state.get("active_df", None)
+
+    if anom_df is None or anom_df.empty:
+        st.warning("⚠️ No active dataset found. Please upload a dataset in 'Data Ingestion & Validation' or upload a file below.")
+        uploaded_file_anom = st.file_uploader("Upload CSV dataset for Anomaly Detection", type=["csv", "xlsx"], key="anom_uploader")
+        if uploaded_file_anom is not None:
+            try:
+                file_bytes = uploaded_file_anom.read()
+                anom_df = DataIngestionService.ingest_file(file_bytes=file_bytes, filename=uploaded_file_anom.name)
+                st.session_state["active_df"] = anom_df
+                st.success(f"Dataset loaded: {anom_df.shape[0]} rows × {anom_df.shape[1]} columns.")
+            except Exception as exc:
+                st.error(f"Error loading dataset: {exc}")
+
+    if anom_df is not None and not anom_df.empty:
+        num_cols = [c for c in anom_df.columns if pd.api.types.is_numeric_dtype(anom_df[c])]
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            selected_features = st.multiselect("Numerical Features to Evaluate:", options=num_cols, default=num_cols)
+        with col2:
+            method_opt = st.selectbox(
+                "Detection Algorithm Method:",
+                options=["ensemble", "isolation_forest", "zscore", "iqr"],
+                format_func=lambda x: {"ensemble": "Ensemble Voting (Recommended)", "isolation_forest": "Isolation Forest", "zscore": "Z-Score Statistical", "iqr": "Interquartile Range (IQR)"}[x],
+            )
+        with col3:
+            contamination_val = st.slider("Contamination Rate:", min_value=0.01, max_value=0.20, value=0.05, step=0.01)
+        with col4:
+            z_thresh_val = st.slider("Z-Score Threshold:", min_value=1.5, max_value=5.0, value=3.0, step=0.5)
+
+        st.divider()
+
+        if st.button("🔍 Run Automated Anomaly Detection", type="primary", use_container_width=True):
+            if not selected_features:
+                st.error("Please select at least one numerical feature.")
+            else:
+                with st.spinner("Detecting statistical and machine learning anomalies..."):
+                    try:
+                        config = AnomalyConfig(
+                            features=selected_features,
+                            method=AnomalyMethod(method_opt),
+                            contamination=contamination_val,
+                            z_threshold=z_thresh_val,
+                        )
+                        detector = AnomalyDetector()
+                        report: AnomalyReport = detector.detect(anom_df, config)
+                        st.session_state["anom_report"] = report
+                        st.success("✅ Anomaly detection analysis completed successfully!")
+                    except Exception as anom_err:
+                        st.error(f"Anomaly detection failed: {anom_err}")
+
+        if "anom_report" in st.session_state:
+            report: AnomalyReport = st.session_state["anom_report"]
+            st.divider()
+
+            # Metric Header Cards
+            st.markdown("#### 🚨 Anomaly Summary & Severity Breakdown")
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Total Rows Analyzed", f"{report.total_rows:,}")
+            c2.metric("Anomalous Rows Count", f"{report.affected_rows_count:,}")
+            c3.metric("Anomaly Rate (%)", f"{report.anomaly_percentage}%")
+            
+            sev_val = report.max_severity.value if hasattr(report.max_severity, "value") else str(report.max_severity)
+            c4.metric("Highest Severity Detected", sev_val)
+
+            st.write("")
+
+            # Plotly Scatter Chart
+            if report.chart_plotly_json:
+                st.markdown("#### 📊 Interactive Anomaly Visual Scatter Plot")
+                fig_anom = go.Figure(json.loads(report.chart_plotly_json))
+                st.plotly_chart(fig_anom, use_container_width=True)
+
+            # Feature Attribution Ranking
+            if report.feature_importance_ranking:
+                st.markdown("#### 💡 Top Feature Deviations (Anomaly Importance)")
+                feat_df = pd.DataFrame([{"Feature": k, "Avg Z-Deviation": v} for k, v in report.feature_importance_ranking.items()])
+                fig_feat = px.bar(feat_df, x="Avg Z-Deviation", y="Feature", orientation="h", title="Top Features Contributing to Anomalies")
+                fig_feat.update_layout(height=280, margin=dict(l=20, r=20, t=40, b=20))
+                st.plotly_chart(fig_feat, use_container_width=True)
+
+            # Anomalous Records Table
+            st.markdown(f"#### 📋 Anomalous Records Detail ({len(report.anomalous_records)} rows)")
+            if report.anomalous_records:
+                anom_rows = []
+                for rec in report.anomalous_records:
+                    contrib_str = ", ".join([f"{k} (|Z|={v})" for k, v in rec.contributing_features.items()])
+                    anom_rows.append({
+                        "Row Index": rec.row_index,
+                        "Anomaly Score": rec.anomaly_score,
+                        "Severity": rec.severity.value if hasattr(rec.severity, "value") else str(rec.severity),
+                        "Top Contributing Features": contrib_str,
+                        "Feature Snippet": str(rec.feature_values),
+                    })
+                anom_table_df = pd.DataFrame(anom_rows)
+                st.dataframe(anom_table_df, use_container_width=True)
+
+                csv_anom = anom_table_df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Download Anomalous Records CSV",
+                    data=csv_anom,
+                    file_name="datasense_anomalies.csv",
+                    mime="text/csv",
+                )
+
+
 elif nav_option == "System Diagnostics":
     st.header("System Diagnostics & Backend API Health")
     if health_data:
         st.json(health_data)
     else:
         st.warning("Backend API is currently offline. Running in local Streamlit mode.")
+

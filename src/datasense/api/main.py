@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from configuration.settings import settings
-from datasense.api.routers import health, datasets, preprocessing, eda, ml
+from datasense.api.routers import health, datasets, preprocessing, eda, ml, forecasting, anomaly
 from datasense.utilities.logger import get_logger
 
 logger = get_logger("api.main")
@@ -48,6 +48,9 @@ def create_app() -> FastAPI:
     app.include_router(preprocessing.router)
     app.include_router(eda.router)
     app.include_router(ml.router)
+    app.include_router(forecasting.router)
+    app.include_router(anomaly.router)
+
 
 
 

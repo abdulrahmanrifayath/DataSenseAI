@@ -115,4 +115,38 @@ class MLModelRecord(Base):
     )
 
 
+class ForecastingRecord(Base):
+    """Stored Time-Series Forecasting run metadata and report."""
+
+    __tablename__ = "forecasting_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    dataset_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    date_column: Mapped[str] = mapped_column(String(255), nullable=False)
+    target_column: Mapped[str] = mapped_column(String(255), nullable=False)
+    forecast_horizon: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+    report: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False
+    )
+
+
+class AnomalyDetectionRecord(Base):
+    """Stored Anomaly Detection run metadata and report."""
+
+    __tablename__ = "anomaly_detection_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    dataset_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    method: Mapped[str] = mapped_column(String(100), nullable=False)
+    affected_rows_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    report: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False
+    )
+
+
+
 

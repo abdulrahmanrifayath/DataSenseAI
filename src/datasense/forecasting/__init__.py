@@ -1,18 +1,33 @@
 """Time-series forecasting module."""
 
 from datasense.utilities.logger import get_logger
+from datasense.forecasting.schemas import (
+    ForecastModelType,
+    FrequencyOption,
+    ForecastMetrics,
+    ForecastItem,
+    ModelForecastResult,
+    ForecastingConfig,
+    ForecastingReport,
+    ForecastRequest,
+    ForecastResponse,
+)
+from datasense.forecasting.engine import ForecastingEngine, calculate_smape, calculate_mape
 
 logger = get_logger("forecasting")
 
+__all__ = [
+    "ForecastingEngine",
+    "calculate_smape",
+    "calculate_mape",
+    "ForecastModelType",
+    "FrequencyOption",
+    "ForecastMetrics",
+    "ForecastItem",
+    "ModelForecastResult",
+    "ForecastingConfig",
+    "ForecastingReport",
+    "ForecastRequest",
+    "ForecastResponse",
+]
 
-class ForecastingEngine:
-    """Handles time-series data trend analysis and forecasting."""
-
-    def __init__(self, horizon: int = 30):
-        self.horizon = horizon
-        logger.info(f"Initialized ForecastingEngine with forecast horizon: {horizon}")
-
-    def generate_forecast(self, data):
-        """Forecasting interface stub."""
-        logger.info("Generating forecast stub.")
-        return {"status": "forecast_generated", "horizon": self.horizon}
