@@ -61,7 +61,8 @@ def explain_model_endpoint(
     # Determine target & fit surrogate explainer model if custom model is not loaded
     if payload.target_column and payload.target_column in df.columns:
         y = df[payload.target_column].to_numpy()
-        task_type = determine_task_type(df[payload.target_column])
+        task_type = determine_task_type(df, payload.target_column)
+
     else:
         y = X[:, 0]
         task_type = "regression"
