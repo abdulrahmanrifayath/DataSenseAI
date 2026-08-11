@@ -1,0 +1,47 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy configuration and pyproject.toml
+COPY pyproject.toml .env.example /app/
+
+# Install python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir \
+    fastapi \
+    uvicorn \
+    pydantic \
+    pydantic-settings \
+    sqlalchemy \
+    psycopg2-binary \
+    pandas \
+    numpy \
+    scikit-learn \
+    xgboost \
+    statsmodels \
+    prophet \
+    shap \
+    plotly \
+    psutil \
+    joblib \
+    httpx \
+    requests \
+    python-multipart \
+    pytest
+
+# Copy application source code
+COPY src/ /app/src/
+COPY configuration/ /app/configuration/
+COPY data/ /app/data/
+
+ENV PYTHONPATH=/app/src
+
+EXPOSE 8000
+
+CMD ["uvicorn", "datasense.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

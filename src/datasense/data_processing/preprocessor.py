@@ -468,9 +468,13 @@ class DataPreprocessor:
 
         return ColumnTransformer(transformers=transformers, remainder="passthrough", verbose_feature_names_out=False)
 
-    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+    def fit_transform(self, df: pd.DataFrame, config: Optional[PreprocessingConfig] = None) -> pd.DataFrame:
         """Executes full preprocessing pipeline: fit, clean, transform, and report generation."""
+        if config is not None:
+            self.config = config
+
         logger.info(f"Starting DataPreprocessor fit_transform on DataFrame shape {df.shape}")
+
         initial_shape = list(df.shape)
         self.missing_fixed = int(df.isnull().sum().sum())
         

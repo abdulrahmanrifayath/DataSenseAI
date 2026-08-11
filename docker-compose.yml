@@ -1,11 +1,10 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Persistent Metadata Database
-  postgres_db:
+  # PostgreSQL Database Service
+  db:
     image: postgres:16-alpine
-    container_name: datasense_postgres
-    restart: always
+    container_name: datasense_db
     environment:
       POSTGRES_USER: datasense_user
       POSTGRES_PASSWORD: datasense_password
@@ -20,39 +19,50 @@ services:
       timeout: 5s
       retries: 5
 
-  # FastAPI Backend API Service
-  backend_api:
-    build: .
+  # MLflow Tracking Server Service
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.10.0
+    container_name: datasense_mlflow
+    ports:
+      - "5000:5000"
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root /mlflow/artifacts
+    volumes:
+      - mlflow_data:/mlflow
+
+  # FastAPI Backend Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
     container_name: datasense_backend
-    restart: always
-    command: uvicorn datasense.api.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - DATABASE_URL=postgresql://datasense_user:datasense_password@db:5432/datasense_db
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - APP_ENV=production
+      - LOG_LEVEL=INFO
     ports:
       - "8000:8000"
-    environment:
-      - APP_NAME=DataSense AI
-      - APP_ENV=development
-      - DATABASE_URL=postgresql://datasense_user:datasense_password@postgres_db:5432/datasense_db
-      - POSTGRES_SERVER=postgres_db
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=datasense_user
-      - POSTGRES_PASSWORD=datasense_password
-      - POSTGRES_DB=datasense_db
     depends_on:
-      postgres_db:
+      db:
         condition: service_healthy
+      mlflow:
+        condition: service_started
 
-  # Streamlit Analytics Dashboard Service
-  dashboard:
-    build: .
-    container_name: datasense_dashboard
-    restart: always
-    command: streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
+  # Streamlit Frontend Service
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: datasense_frontend
+    environment:
+      - DATABASE_URL=postgresql://datasense_user:datasense_password@db:5432/datasense_db
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - BACKEND_API_URL=http://backend:8000
     ports:
       - "8501:8501"
-    environment:
-      - BACKEND_API_URL=http://backend_api:8000
     depends_on:
-      - backend_api
+      - backend
 
 volumes:
   postgres_data:
+  mlflow_data:

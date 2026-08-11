@@ -425,7 +425,12 @@ elif nav_option == "Exploratory Data Analysis":
             t1, t2, t3 = st.tabs(["📊 Summary Statistics", "🔥 Correlation Matrix", "💡 Automated Insights"])
             with t1:
                 st.subheader("Numerical Feature Describe Table")
-                st.dataframe(pd.DataFrame(report.summary_stats.get("describe", {})), use_container_width=True)
+                num_stats_df = pd.DataFrame([{"feature": k, **v.model_dump()} for k, v in report.numerical_stats.items()])
+                st.dataframe(num_stats_df, use_container_width=True)
+
+
+
+
             with t2:
                 if report.correlation_matrix:
                     corr_df = pd.DataFrame(report.correlation_matrix)

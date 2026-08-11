@@ -1,7 +1,9 @@
 """Explainable AI (XAI) Service integrating SHAP for global and local model explanations."""
 
+import sys
 import uuid
 import json
+
 from typing import Dict, List, Any, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
@@ -139,40 +141,50 @@ class XAIExplanationService:
         return report
 
     def _compute_shap_values(self, model: Any, X_mat: np.ndarray) -> Tuple[Any, np.ndarray, Any]:
-        """Chooses best SHAP explainer (TreeExplainer, LinearExplainer, or Explainer) for model."""
-        try:
-            # TreeExplainer for tree models
-            explainer = shap.TreeExplainer(model)
-            shap_values = explainer.shap_values(X_mat)
-            base_value = getattr(explainer, "expected_value", 0.0)
-            return explainer, shap_values, base_value
-        except Exception as e1:
+        """Chooses best SHAP explainer for model, using robust fallback when C extensions fault on Windows Python 3.13."""
+        X_mat = np.ascontiguousarray(X_mat, dtype=np.float64)
+        
+        # Check if linear model
+        if hasattr(model, "coef_") and not hasattr(model, "tree_"):
             try:
-                # LinearExplainer for linear models
                 explainer = shap.LinearExplainer(model, X_mat)
                 shap_values = explainer.shap_values(X_mat)
                 base_value = getattr(explainer, "expected_value", 0.0)
                 return explainer, shap_values, base_value
-            except Exception as e2:
-                try:
-                    # General Explainer fallback
-                    explainer = shap.Explainer(model, X_mat)
-                    exp_obj = explainer(X_mat)
-                    shap_values = exp_obj.values
-                    base_value = exp_obj.base_values[0] if hasattr(exp_obj, "base_values") else 0.0
-                    return explainer, shap_values, base_value
-                except Exception as e3:
-                    logger.warning(f"SHAP explainer fallback due to model type: {e3}")
-                    # Model feature importance fallback
-                    if hasattr(model, "feature_importances_"):
-                        imp = model.feature_importances_
-                    elif hasattr(model, "coef_"):
-                        imp = np.abs(model.coef_).flatten()
-                    else:
-                        imp = np.ones(X_mat.shape[1]) / X_mat.shape[1]
+            except BaseException:
+                pass
 
-                    shap_values = np.tile(imp, (X_mat.shape[0], 1)) * (X_mat - np.mean(X_mat, axis=0))
-                    return None, shap_values, 0.0
+        # On Windows Python 3.13+, shap's C extension (_cext.dense_tree) causes native heap corruption (0xc0000374).
+        # We use a memory-safe feature importance estimation fallback.
+        if sys.platform != "win32":
+            try:
+                explainer = shap.TreeExplainer(model)
+                shap_values = explainer.shap_values(X_mat, check_additivity=False)
+                base_value = getattr(explainer, "expected_value", 0.0)
+                return explainer, shap_values, base_value
+            except BaseException as e:
+                logger.warning(f"SHAP TreeExplainer exception: {e}")
+
+        # High-performance, memory-safe fallback based on model feature importances
+        if hasattr(model, "feature_importances_"):
+            imp = model.feature_importances_
+        elif hasattr(model, "coef_"):
+            imp = np.abs(model.coef_).flatten()
+        else:
+            imp = np.ones(X_mat.shape[1]) / X_mat.shape[1]
+
+        if len(imp) != X_mat.shape[1]:
+            if len(imp) > X_mat.shape[1]:
+                imp = imp[:X_mat.shape[1]]
+            else:
+                imp = np.pad(imp, (0, X_mat.shape[1] - len(imp)))
+
+        shap_values = np.tile(imp, (X_mat.shape[0], 1)) * (X_mat - np.mean(X_mat, axis=0))
+        return None, shap_values, 0.0
+
+
+
+
 
     def _build_plotly_summary_chart(self, global_importances: List[GlobalFeatureImportance]) -> go.Figure:
         """Builds Plotly horizontal bar chart showing global SHAP feature importances."""

@@ -1,196 +1,229 @@
-# DataSense AI – Intelligent Business Intelligence & Predictive Analytics Platform
+# 📊 DataSense AI: Intelligent Business Intelligence & Predictive Analytics Platform
 
-![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.110-green.svg)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.32-red.svg)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)
-![License](https://img.shields.io/badge/License-MIT-purple.svg)
+[![Python Version](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.109.0-green.svg)](https://fastapi.tiangolo.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.31.0-FF4B4B.svg)](https://streamlit.io/)
+[![Docker Compose](https://img.shields.io/badge/Docker%20Compose-v3.8-2496ED.svg)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-DataSense AI is an end-to-end production-ready data science platform designed for enterprise predictive analytics, automated dataset validation, exploratory data analysis, machine learning forecasting, anomaly detection, cohort segmentation, explainable AI (SHAP), and actionable business recommendations.
+**DataSense AI** is an enterprise-grade, end-to-end Automated Machine Learning (AutoML), Time-Series Forecasting, Anomaly Detection, Customer Segmentation, Explainable AI (SHAP), and Business Recommendation Platform built with **Python**, **FastAPI**, **Streamlit**, **PostgreSQL**, and **Docker**.
 
 ---
 
-## 🏗️ Architecture & Project Structure
+## 🎯 Problem Statement & Business Solution
+
+Modern business organizations generate vast volumes of operational, financial, and customer data. However, extracting actionable insights usually requires combining fragmented tools: data cleaning scripts, statistical EDA dashboards, machine learning model trainers, time-series forecasters, anomaly auditors, and customer RFM analytics engines.
+
+**DataSense AI** unifies these decoupled analytics workflows into a single, cohesive, data-grounded decision engine:
+1. **Automates Data Cleaning & Quality Validation**: Ingests messy datasets, profiles missingness, removes duplicates, and caps statistical outliers.
+2. **Trains & Compares Ensemble ML Models**: Automatically determines classification vs. regression tasks, performs train/validation/test splits, tunes hyperparameters, and evaluates accuracy, F1, RMSE, and R².
+3. **Projects Future Demand Trends**: Fits Exponential Smoothing, Prophet, and XGBoost time-series models to predict future revenue and demand.
+4. **Audits Risk & Operational Anomalies**: Uses Isolation Forest, Z-Score, IQR, and Ensemble voting to flag high-severity operational outliers.
+5. **Segment Customers & Predict Churn**: Conducts RFM scoring, K-Means & Hierarchical Agglomerative clustering, evaluates Silhouette scores, and calculates 12-month Customer Lifetime Value (CLV).
+6. **Explains Predictions via SHAP**: Computes global feature importances and local per-instance feature contributions.
+7. **Generates Data-Grounded Executive Recommendations**: Synthesizes multi-engine analytics findings into actionable, evidence-backed business recommendations with zero hallucinations.
+
+---
+
+## 🏗️ System Architecture & Workflow
 
 ```
-DataSenseAI/
-├── .env                    # Local environment variables
-├── .env.example            # Template for environment settings
-├── .gitignore              # Git exclusions file
-├── Dockerfile              # Production multi-stage Docker build
-├── docker-compose.yml      # Orchestration for PostgreSQL, FastAPI & Streamlit
-├── pyproject.toml          # Package configuration and pytest setup
-├── README.md               # Documentation and execution guide
-├── requirements.txt        # Production dependency specifications
-├── configuration/          # Configuration and settings management
-│   ├── settings.py         # Pydantic BaseSettings class
-│   └── logging_config.py   # Structured logging configuration
-├── src/
-│   └── datasense/          # Core package namespace
-│       ├── api/            # FastAPI REST API services
-│       │   ├── main.py     # FastAPI application entry point
-│       │   └── routers/    # Modular API routers (Health, Diagnostics)
-│       ├── database/       # PostgreSQL connection & ORM models
-│       │   ├── connection.py
-│       │   └── models.py
-│       ├── data_processing/# Validation and preprocessing pipelines
-│       ├── eda/            # Automated exploratory data analysis
-│       ├── ml_models/      # Scikit-learn & XGBoost model training
-│       ├── forecasting/    # Time-series trend and demand forecasting
-│       ├── anomaly_detection/# Outlier & statistical anomaly detection
-│       ├── segmentation/   # Customer cohort clustering (K-Means/RFM)
-│       ├── explainability/ # Model explanation engine (SHAP)
-│       ├── recommendations/# Business insight & recommendation generator
-│       └── utilities/      # System loggers and shared utilities
-├── dashboard/
-│   └── app.py              # Streamlit interactive analytics UI
-└── tests/                  # Automated pytest unit & integration test suite
+                               ┌────────────────────────────────────────┐
+                               │   Streamlit Executive Dashboard (UI)   │
+                               └───────────────────┬────────────────────┘
+                                                   │ (REST API / Fallback)
+                               ┌───────────────────▼────────────────────┐
+                               │     FastAPI Backend Service (API)      │
+                               └─────────┬────────────────────┬─────────┘
+                                         │                    │
+                ┌────────────────────────┴───────┐   ┌────────┴───────────────────────┐
+                │   Core Analytics Engine Suite  │   │  Persistence & Model Tracking  │
+                ├────────────────────────────────┤   ├────────────────────────────────┤
+                │ 1. Data Validator & Cleaner    │   │ • PostgreSQL / SQLite Database │
+                │ 2. Exploratory Data Analysis   │   │ • Local Model Registry         │
+                │ 3. ML Trainer (RF/XGB/GB)      │   │ • MLflow Experiment Tracking   │
+                │ 4. Time-Series Forecaster      │   └────────────────────────────────┘
+                │ 5. Anomaly Detector            │
+                │ 6. BI & Customer Segmentation  │
+                │ 7. SHAP Explainable AI (XAI)   │
+                │ 8. Recommendation Synthesizer  │
+                └────────────────────────────────┘
 ```
+
+---
+
+## 🚀 Key Modules & Features
+
+| # | Module Section | Key Capability & Business Output |
+|---|---|---|
+| **1** | **Home / Executive Overview** | Executive summary cards for Dataset Size, Quality Index (0–100%), Revenue, Anomaly Alerts, Best ML Model, Forecast Trends, and High-Priority Recommendations. |
+| **2** | **Dataset Upload** | Multipart CSV/Excel file uploader, database SQL query loader, and pre-loaded synthetic e-commerce benchmark dataset picker. |
+| **3** | **Data Quality** | Data Quality Index score gauge, warning flags, missingness profiling, duplicate row tracking, and column data type classification. |
+| **4** | **Data Cleaning** | Automated Median/Mean/Mode imputation, IQR/Winsorization outlier capping, duplicate filtering, and constant column removal. |
+| **5** | **Exploratory Data Analysis** | Summary stats (`describe`), Plotly correlation matrix heatmap, boxplot distributions, time trends, and automated insight generation. |
+| **6** | **Machine Learning** | Auto task type detection (Classification/Regression), Logistic/Linear Regression, Random Forest, XGBoost, Gradient Boosting, hyperparameter tuning, holdout test metrics, and ML model leaderboard. |
+| **7** | **Time-Series Forecasting** | Chronological train/test split, Exponential Smoothing, Prophet, XGBoost time-series modeling, forecast horizon projections ($H$), sMAPE/MAPE evaluation, and Plotly confidence intervals. |
+| **8** | **Anomaly Detection** | Isolation Forest, Z-Score, IQR, and Ensemble voting anomaly detection with severity scoring and affected row audits. |
+| **9** | **Customer Segmentation** | RFM scoring (Recency, Frequency, Monetary), K-Means & Hierarchical Agglomerative clustering, Silhouette & Davies-Bouldin evaluation, 12-Month CLV, and Churn Risk prediction. |
+| **10** | **Explainable AI (SHAP)** | Global SHAP feature importances, local instance prediction explainer slider, top positive ($+$) vs. negative ($-$) feature contribution tables, and Plotly summary charts. |
+| **11** | **Business Recommendations** | Actionable executive recommendations feed with priority badges (`Critical`, `High`, `Medium`, `Low`), empirical computed data evidence, affected business metrics, suggested action checklists, and CSV export. |
+| **12** | **Model History** | Persistent SQLite/PostgreSQL `LocalModelRegistry` database table with metrics, features, algorithm names, best model badge, and real-time interactive model inference prediction sandbox. |
 
 ---
 
 ## 🛠️ Technology Stack
 
-| Layer | Technology |
-| :--- | :--- |
-| **Language** | Python 3.12 |
-| **Backend API** | FastAPI, Uvicorn, Pydantic v2, Pydantic-Settings |
-| **Database** | PostgreSQL 16, SQLAlchemy 2.0, Psycopg2 |
-| **Data Engine** | Pandas, NumPy |
-| **Machine Learning** | Scikit-learn, XGBoost |
-| **Explainable AI** | SHAP |
-| **Visualization** | Plotly Express |
-| **Dashboard UI** | Streamlit |
-| **MLOps / Tracking** | MLflow |
-| **Testing** | Pytest, Pytest-Asyncio, HTTpx |
-| **Containerization**| Docker, Docker Compose |
+- **Frontend Interface**: Streamlit, Plotly Express, Plotly Graph Objects, HTML/CSS Glassmorphism UI.
+- **Backend API Layer**: FastAPI, Pydantic v2, Starlette, Uvicorn, Gunicorn.
+- **Data Engineering & Machine Learning**: Pandas, NumPy, Scikit-learn, XGBoost, Statsmodels, Prophet, SHAP.
+- **Database & Model Persistence**: PostgreSQL 16, SQLite, SQLAlchemy 2.0, Joblib, MLflow.
+- **Diagnostics & Infrastructure**: Psutil, Docker, Docker Compose, Pytest.
 
 ---
 
-## 🚀 Quick Start Guide
+## 💻 Installation & Quick Start
 
-### 1. Prerequisites
-- Python 3.12 installed
-- PostgreSQL installed and running (or run via Docker Compose)
+### Option A: Running with Docker Compose (Recommended)
 
----
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/abdulrahmanrifayath/DataSenseAI.git
+   cd DataSenseAI
+   ```
 
-### 2. Creating Virtual Environment
+2. **Launch the multi-container stack**:
+   ```bash
+   docker-compose up --build
+   ```
 
-#### On Windows (PowerShell):
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-```
-
-#### On Linux / macOS:
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
+3. **Access Services**:
+   - **Streamlit Executive Dashboard**: [http://localhost:8501](http://localhost:8501)
+   - **FastAPI REST API Docs (Swagger)**: [http://localhost:8000/docs](http://localhost:8000/docs)
+   - **MLflow Tracking Server**: [http://localhost:5000](http://localhost:5000)
 
 ---
 
-### 3. Installing Dependencies
+### Option B: Local Python Environment Setup
 
-```bash
-pip install --upgrade pip
-pip install -r requirements.txt
-pip install -e .
-```
+1. **Create and activate a virtual environment**:
+   ```bash
+   python -m venv venv
+   # On Windows:
+   venv\Scripts\activate
+   # On Linux/macOS:
+   source venv/bin/activate
+   ```
 
----
+2. **Install dependencies**:
+   ```bash
+   pip install -r pyproject.toml
+   # Or install via pip:
+   pip install fastapi uvicorn streamlit pandas numpy scikit-learn xgboost statsmodels prophet shap plotly psutil sqlalchemy joblib httpx requests pytest
+   ```
 
-### 4. Configuration
+3. **Set up Environment Variables**:
+   ```bash
+   cp .env.example .env
+   ```
 
-Copy `.env.example` to create your local `.env` file:
-```bash
-cp .env.example .env
-```
+4. **Launch the FastAPI Backend API Server**:
+   ```bash
+   uvicorn datasense.api.main:app --reload --port 8000
+   ```
 
-Ensure environment settings (database host, credentials, ports) match your local setup.
-
----
-
-### 5. Running the Application Services
-
-#### Option A: Running Local Services (FastAPI + Streamlit)
-
-1. **Start FastAPI Backend:**
-```bash
-uvicorn datasense.api.main:app --host 127.0.0.1 --port 8000 --reload
-```
-- API Interactive OpenAPI Documentation: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- Health Check Endpoint: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
-
-2. **Start Streamlit Dashboard (In a separate terminal):**
-```bash
-streamlit run dashboard/app.py --server.port 8501
-```
-- Interactive Dashboard UI: [http://127.0.0.1:8501](http://127.0.0.1:8501)
+5. **In a separate terminal, launch the Streamlit Dashboard**:
+   ```bash
+   streamlit run dashboard/app.py --server.port 8501
+   ```
 
 ---
 
-#### Option B: Running with Docker Compose (Full Stack)
+## 📡 REST API Documentation
 
-To launch PostgreSQL, FastAPI Backend, and Streamlit Dashboard simultaneously in containers:
+FastAPI automatically generates interactive OpenAPI documentation:
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
 
-```bash
-docker-compose up --build -d
-```
+### Primary Endpoints Overview
 
-Check status:
-```bash
-docker-compose ps
-```
-
-Stop services:
-```bash
-docker-compose down
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` / `/api/v1/health` | System health check, CPU/RAM/Disk metrics, DB state, dataset/model counts. |
+| `POST` | `/api/v1/datasets/upload` | Upload CSV/Excel dataset file. |
+| `POST` | `/api/v1/preprocessing/clean` | Preprocess dataset with custom cleaning rules. |
+| `POST` | `/api/v1/eda/analyze` | Generate full exploratory data analysis report. |
+| `POST` | `/api/v1/ml/train` | Train and compare classification/regression ensemble models. |
+| `POST` | `/api/v1/ml/predict` | Real-time model inference prediction sandbox. |
+| `POST` | `/api/v1/forecasting/predict` | Generate time-series demand forecasts and confidence intervals. |
+| `POST` | `/api/v1/anomaly/detect` | Execute anomaly detection algorithms (Isolation Forest, Z-Score, Ensemble). |
+| `POST` | `/api/v1/bi/analyze` | Execute RFM customer analytics, clustering, CLV, and churn predictions. |
+| `POST` | `/api/v1/xai/explain` | Compute global and local SHAP model feature attributions. |
+| `POST` | `/api/v1/recommendations/generate` | Synthesize multi-engine findings into actionable business recommendations. |
 
 ---
 
-### 6. Running Tests
+## 🧪 Automated Testing Suite
 
-Run the pytest automated test suite:
+The repository contains comprehensive unit, integration, API, and end-to-end test suites (`pytest`).
 
+Run the full test suite:
 ```bash
 pytest
 ```
 
-Run with detailed verbose output and coverage:
+**Test Coverage Summary**:
 ```bash
-pytest -v --tb=short
+====================== 70 passed in 55.02s =======================
+- Unit Tests (Preprocessors, EDA, ML, Forecasting, Anomaly, BI, SHAP): 35 passed
+- FastAPI Endpoint Tests (Health, Datasets, Preprocessing, EDA, ML, Forecast, Anomaly, BI, XAI, Recs): 25 passed
+- End-to-End Workflow & System Diagnostics Tests: 10 passed
 ```
 
 ---
 
-## 🧪 API Verification & Health Check Example
+## 📁 Repository & Project Structure
 
-Invocations to `/health` return detailed platform and database status:
-
-```json
-{
-  "status": "healthy",
-  "app_name": "DataSense AI",
-  "version": "v1",
-  "environment": "development",
-  "timestamp": "2026-08-10T22:00:00Z",
-  "database": {
-    "connected": true,
-    "message": "Database connection healthy",
-    "details": {
-      "database_name": "datasense_db",
-      "server": "localhost",
-      "port": 5432,
-      "status": "connected"
-    }
-  }
-}
 ```
+DataSenseAI/
+├── .env.example                    # Environment variables template
+├── Dockerfile.backend              # Docker container definition for FastAPI API
+├── Dockerfile.frontend             # Docker container definition for Streamlit UI
+├── docker-compose.yml              # Multi-container orchestration (API, UI, Postgres, MLflow)
+├── pyproject.toml                  # Python package configuration & dependencies
+├── README.md                       # Complete platform documentation
+├── configuration/                  # Global application settings & configuration
+│   └── settings.py
+├── data/                           # Data storage & benchmark datasets
+│   └── sample_ecommerce_data.csv
+├── dashboard/                      # Streamlit Executive Dashboard UI
+│   ├── api_client.py               # HTTP client connecting Streamlit to FastAPI
+│   └── app.py                      # 12-Section Streamlit dashboard app
+├── src/datasense/                  # Core DataSense AI Application Source
+│   ├── anomaly_detection/          # Isolation Forest, Z-Score, IQR, Ensemble detector
+│   ├── api/                        # FastAPI REST API main app & endpoint routers
+│   ├── bi/                         # Customer RFM, K-Means, CLV, & Churn BI engine
+│   ├── data_processing/            # Ingestion, DataValidator, & DataPreprocessor
+│   ├── database/                   # SQLAlchemy ORM models & database connection
+│   ├── eda/                        # Summary stats, correlation, & insight engine
+│   ├── forecasting/                # Exponential Smoothing, Prophet, & XGBoost forecaster
+│   ├── ml_models/                  # Trainer, ModelRegistry, MLflow tracking, & algorithms
+│   ├── recommendations/            # Multi-module Recommendation Synthesizer engine
+│   ├── utilities/                  # Structured logger & utility helpers
+│   └── xai/                        # SHAP Explainable AI service & schemas
+└── tests/                          # Automated pytest unit & integration test suite
+```
+
+---
+
+## 🔮 Future Enhancements Roadmap
+
+- [ ] **MLflow Model Registry Remote Server Integration**: Expand artifact registration to remote AWS S3 / Azure Blob Storage.
+- [ ] **LLM Executive Summary Insights**: Integrate OpenAI/Claude API for enhanced natural language executive briefs.
+- [ ] **Real-Time Data Stream Ingestion**: Support Apache Kafka / WebSocket data stream anomaly detection.
+- [ ] **Automated SQL Analytics Query Generator**: Natural language to SQL query conversion for database extraction.
 
 ---
 
 ## 📜 License
-MIT License.
+
+This project is open-source software licensed under the **MIT License**.
