@@ -12,14 +12,14 @@ from datasense.recommendations import BusinessRecommendationEngine
 
 
 def test_data_validator_and_preprocessor():
-    df = pd.DataFrame({"col_a": [1, 2, None], "col_b": ["x", "y", "z"]})
+    df = pd.DataFrame({"col_a": [1.0, 2.0, None], "col_b": ["x", "y", "z"]})
     validator = DataValidator(df)
-    summary = validator.validate_summary()
-    assert summary["num_rows"] == 3
-    assert summary["num_columns"] == 2
+    report = validator.validate()
+    assert report.row_count == 3
+    assert report.column_count == 2
 
-    preprocessor = DataPreprocessor(df)
-    cleaned_df = preprocessor.clean_missing_values(strategy="auto")
+    preprocessor = DataPreprocessor()
+    cleaned_df = preprocessor.fit_transform(df)
     assert cleaned_df["col_a"].isnull().sum() == 0
 
 

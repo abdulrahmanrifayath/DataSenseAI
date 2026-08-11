@@ -1,5 +1,6 @@
 """PostgreSQL and SQLite Fallback Database Connection and Session Management module."""
 
+from contextlib import contextmanager
 from typing import Generator, Tuple, Dict, Any
 import os
 from sqlalchemy import create_engine, text
@@ -68,6 +69,17 @@ def get_db_session() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+
+@contextmanager
+def get_db_context() -> Generator[Session, None, None]:
+    """Context manager for explicit 'with get_db_context() as db:' usage."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 
 
 def check_db_health() -> Tuple[bool, str, Dict[str, Any]]:

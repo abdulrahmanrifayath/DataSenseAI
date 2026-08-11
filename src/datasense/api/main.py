@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from configuration.settings import settings
-from datasense.api.routers import health
+from datasense.api.routers import health, datasets, preprocessing, eda, ml
 from datasense.utilities.logger import get_logger
 
 logger = get_logger("api.main")
@@ -45,6 +45,12 @@ def create_app() -> FastAPI:
     # Include API Routers
     app.include_router(health.router)
     app.include_router(datasets.router)
+    app.include_router(preprocessing.router)
+    app.include_router(eda.router)
+    app.include_router(ml.router)
+
+
+
 
     @app.get("/", tags=["Root"], summary="Platform Root Information")
     def root_info() -> Dict[str, Any]:

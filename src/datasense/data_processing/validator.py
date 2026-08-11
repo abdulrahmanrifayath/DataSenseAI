@@ -52,10 +52,11 @@ class DataProfiler:
         is_name_match = any(token in col_lower for token in ["id", "uuid", "guid", "code", "index", "key"])
 
         if non_null_count == total_rows and unique_count == total_rows:
-            if is_name_match or inferred_type in ["categorical", "numerical"]:
+            if is_name_match:
                 return True
 
         return False
+
 
     def calculate_quality_score(
         self,

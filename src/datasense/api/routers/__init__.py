@@ -1,5 +1,6 @@
 """API Routers package."""
 
-from datasense.api.routers import health, datasets
+from datasense.api.routers import health, datasets, preprocessing, eda, ml
 
-__all__ = ["health", "datasets"]
+__all__ = ["health", "datasets", "preprocessing", "eda", "ml"]
+

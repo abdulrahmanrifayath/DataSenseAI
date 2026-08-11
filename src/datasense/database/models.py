@@ -2,7 +2,7 @@
 
 import datetime
 from typing import Optional, Dict, Any
-from sqlalchemy import String, DateTime, Text, Integer, Float, JSON
+from sqlalchemy import String, DateTime, Text, Integer, Float, JSON, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from datasense.database.connection import Base
 
@@ -42,3 +42,77 @@ class DatasetMetadata(Base):
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False
     )
+
+
+class PreprocessingRecord(Base):
+    """Stored dataset preprocessing run metadata, report, and config."""
+
+    __tablename__ = "preprocessing_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dataset_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    config: Mapped[dict] = mapped_column(JSON, nullable=False)
+    report: Mapped[dict] = mapped_column(JSON, nullable=False)
+    processed_preview: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False
+    )
+
+
+class EDARecord(Base):
+    """Stored dataset EDA run report and metadata."""
+
+    __tablename__ = "eda_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dataset_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_column: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    report: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False
+    )
+
+
+class MLExperimentRecord(Base):
+    """Stored Machine Learning training run experiment report."""
+
+    __tablename__ = "ml_experiment_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    dataset_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    target_column: Mapped[str] = mapped_column(String(255), nullable=False)
+    task_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    best_model_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    best_model_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    report: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False
+    )
+
+
+class MLModelRecord(Base):
+    """Trained machine learning model metadata entity for the model registry."""
+
+    __tablename__ = "ml_model_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    model_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    run_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    dataset_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    model_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    model_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    task_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    target_column: Mapped[str] = mapped_column(String(255), nullable=False)
+    feature_columns: Mapped[dict] = mapped_column(JSON, nullable=False)
+    hyperparameters: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    metrics: Mapped[dict] = mapped_column(JSON, nullable=False)
+    training_time_seconds: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    model_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    is_best: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False
+    )
+
+
+

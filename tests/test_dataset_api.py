@@ -3,7 +3,17 @@
 import io
 import pytest
 from fastapi.testclient import TestClient
-from datasense.api.main import app
+
+from datasense.api.main import create_app
+from datasense.database.connection import init_db_tables
+
+app = create_app()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_test_database():
+    init_db_tables()
+
 
 client = TestClient(app)
 
@@ -14,7 +24,7 @@ def test_upload_dataset_endpoint():
     files = {"file": ("test_upload.csv", io.BytesIO(csv_content), "text/csv")}
 
     response = client.post("/api/v1/datasets/upload", files=files, data={"dataset_name": "Test Upload Dataset"})
-    assert response.status_code == 201
+    assert response.status_code == 201, response.text
 
     data = response.json()
     assert data["name"] == "Test Upload Dataset"
@@ -31,6 +41,7 @@ def test_list_and_get_dataset_endpoints():
     csv_content = b"col1,col2\n10,20\n30,40\n"
     files = {"file": ("test_list.csv", io.BytesIO(csv_content), "text/csv")}
     upload_res = client.post("/api/v1/datasets/upload", files=files)
+    assert upload_res.status_code == 201, upload_res.text
     dataset_id = upload_res.json()["id"]
 
     # Test list endpoint

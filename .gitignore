@@ -95,12 +95,15 @@ venv.bak/
 *.db
 *.sqlite
 *.sqlite3
+*.joblib
 data/raw/*
 data/processed/*
+data/models/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 mlruns/
 mlflow.db
+
 
 # OS specific
 .DS_Store

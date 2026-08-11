@@ -19,19 +19,11 @@ class DataIngestionService:
         encodings_to_try = ["utf-8", "latin1", "cp1252", "iso-8859-1"]
         delimiters_to_try = [",", ";", "\t", "|"]
 
-        if isinstance(source, str) and not source.startswith("http") and not ("\n" in source or "," in source):
-            # source is a file path
-            for encoding in encodings_to_try:
-                for sep in delimiters_to_try:
-                    try:
-                        df = pd.read_csv(source, encoding=encoding, sep=sep, engine="python", on_bad_lines="skip")
-                        if not df.empty and len(df.columns) > 0:
-                            return df
-                    except Exception:
-                        continue
-            raise ValueError(f"Unable to parse CSV file {filename}. Ensure valid CSV format and encoding.")
+        if isinstance(source, str) and not ("\n" in source or ";" in source or "," in source):
+            content_bytes = None
+            file_path = source
         else:
-            # source is bytes, string content, or BytesIO buffer
+            file_path = None
             if isinstance(source, str):
                 content_bytes = source.encode("utf-8")
             elif isinstance(source, bytes):
@@ -41,16 +33,36 @@ class DataIngestionService:
             else:
                 raise ValueError("Unsupported CSV source type.")
 
-            for encoding in encodings_to_try:
-                for sep in delimiters_to_try:
-                    try:
-                        buffer = io.BytesIO(content_bytes)
-                        df = pd.read_csv(buffer, encoding=encoding, sep=sep, engine="python", on_bad_lines="skip")
-                        if not df.empty and len(df.columns) > 0:
-                            return df
-                    except Exception:
-                        continue
-            raise ValueError(f"Failed to parse CSV file '{filename}'. Check delimiter or encoding.")
+        if content_bytes is not None and len(content_bytes.strip()) == 0:
+            raise ValueError("CSV source content is empty.")
+
+        for encoding in encodings_to_try:
+            # First attempt sep=None (python engine auto sniffing)
+            try:
+                buf = io.BytesIO(content_bytes) if content_bytes else file_path
+                df = pd.read_csv(buf, encoding=encoding, sep=None, engine="python", on_bad_lines="skip")
+                if not df.empty and len(df.columns) > 1:
+                    return df
+            except Exception:
+                pass
+
+            best_df = None
+            max_cols = 0
+            for sep in delimiters_to_try:
+                try:
+                    buf = io.BytesIO(content_bytes) if content_bytes else file_path
+                    df = pd.read_csv(buf, encoding=encoding, sep=sep, engine="python", on_bad_lines="skip")
+                    if not df.empty and len(df.columns) > max_cols:
+                        max_cols = len(df.columns)
+                        best_df = df
+                except Exception:
+                    continue
+
+            if best_df is not None and not best_df.empty:
+                return best_df
+
+        raise ValueError(f"Failed to parse CSV file '{filename}'. Check delimiter or encoding.")
+
 
     @staticmethod
     def load_excel(source: Union[str, bytes, BinaryIO], filename: str = "dataset.xlsx") -> pd.DataFrame:
