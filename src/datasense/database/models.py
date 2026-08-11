@@ -148,5 +148,22 @@ class AnomalyDetectionRecord(Base):
     )
 
 
+class BIRecord(Base):
+    """Stored Business Intelligence and Customer Analytics run metadata and report."""
+
+    __tablename__ = "bi_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    dataset_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    total_customers: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_revenue: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    report: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False
+    )
+
+
+
 
 

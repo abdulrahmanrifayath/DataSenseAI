@@ -34,6 +34,9 @@ from datasense.forecasting.engine import ForecastingEngine
 from datasense.forecasting.schemas import ForecastingConfig, ForecastingReport
 from datasense.anomaly_detection.detector import AnomalyDetector
 from datasense.anomaly_detection.schemas import AnomalyConfig, AnomalyMethod, AnomalyReport
+from datasense.bi.engine import BIEngine
+from datasense.bi.schemas import ColumnMappingConfig, BIAnalysisReport
+
 
 
 
@@ -150,9 +153,11 @@ nav_option = st.sidebar.radio(
         "Predictive Modeling & ML",
         "Time-Series Forecasting",
         "Anomaly Detection",
+        "Business Intelligence & Analytics",
         "System Diagnostics",
     ],
 )
+
 
 
 st.sidebar.divider()
@@ -1223,10 +1228,175 @@ elif nav_option == "Anomaly Detection":
                 )
 
 
+elif nav_option == "Business Intelligence & Analytics":
+    st.markdown('<div class="main-header">Business Intelligence & Customer Analytics</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Executive KPIs, RFM Persona Segmentation, Automated K-Means & Hierarchical Clustering Evaluation (Silhouette & Davies-Bouldin), Churn Risk, & Lifetime Value (CLV)</div>', unsafe_allow_html=True)
+
+    bi_df = st.session_state.get("active_df", None)
+
+    if bi_df is None or bi_df.empty:
+        st.warning("⚠️ No active dataset found. Please upload a dataset in 'Data Ingestion & Validation' or upload a file below.")
+        uploaded_file_bi = st.file_uploader("Upload CSV dataset for Business Intelligence Analysis", type=["csv", "xlsx"], key="bi_uploader")
+        if uploaded_file_bi is not None:
+            try:
+                file_bytes = uploaded_file_bi.read()
+                bi_df = DataIngestionService.ingest_file(file_bytes=file_bytes, filename=uploaded_file_bi.name)
+                st.session_state["active_df"] = bi_df
+                st.success(f"Dataset loaded: {bi_df.shape[0]} rows × {bi_df.shape[1]} columns.")
+            except Exception as exc:
+                st.error(f"Error loading dataset: {exc}")
+
+    if bi_df is not None and not bi_df.empty:
+        cols = ["<Auto-Detect>"] + list(bi_df.columns)
+
+        with st.expander("⚙️ Configurable Column Mapping & Algorithm Settings", expanded=True):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                c_id = st.selectbox("Customer ID Column:", options=cols, index=0)
+                c_date = st.selectbox("Order Date Column:", options=cols, index=0)
+            with col2:
+                c_rev = st.selectbox("Revenue / Sales Column:", options=cols, index=0)
+                c_prof = st.selectbox("Profit Column:", options=cols, index=0)
+            with col3:
+                c_qty = st.selectbox("Quantity Column:", options=cols, index=0)
+                c_churn = st.selectbox("Churn Target Column:", options=cols, index=0)
+
+            alg_opt = st.radio("Customer Clustering Algorithm:", ["kmeans", "hierarchical"], format_func=lambda x: "K-Means Clustering" if x == "kmeans" else "Hierarchical Agglomerative Clustering", horizontal=True)
+
+        manual_map = ColumnMappingConfig(
+            customer_id_col=None if c_id == "<Auto-Detect>" else c_id,
+            order_date_col=None if c_date == "<Auto-Detect>" else c_date,
+            revenue_col=None if c_rev == "<Auto-Detect>" else c_rev,
+            profit_col=None if c_prof == "<Auto-Detect>" else c_prof,
+            quantity_col=None if c_qty == "<Auto-Detect>" else c_qty,
+            churn_col=None if c_churn == "<Auto-Detect>" else c_churn,
+        )
+
+        st.divider()
+
+        if st.button("🚀 Run Business Intelligence Analysis", type="primary", use_container_width=True):
+            with st.spinner("Analyzing business KPIs, RFM customer segments, cluster metrics, churn risk, and CLV..."):
+                try:
+                    engine = BIEngine()
+                    report: BIAnalysisReport = engine.analyze(
+                        df=bi_df,
+                        manual_mapping=manual_map,
+                        clustering_algorithm=alg_opt,
+                    )
+                    st.session_state["bi_report"] = report
+                    st.success("✅ Business Intelligence analysis completed successfully!")
+                except Exception as bi_err:
+                    st.error(f"BI Analysis failed: {bi_err}")
+
+        if "bi_report" in st.session_state:
+            report: BIAnalysisReport = st.session_state["bi_report"]
+            kpis = report.business_kpis
+            st.divider()
+
+            # Resolved Mapping Badge
+            resolved = report.resolved_mapping
+            st.info(f"🔍 **Resolved Mapping**: Customer ID: `{resolved.customer_id_col or 'N/A'}` | Date: `{resolved.order_date_col or 'N/A'}` | Revenue: `{resolved.revenue_col or 'N/A'}` | Profit: `{resolved.profit_col or 'N/A'}`")
+
+            # Executive KPI Cards
+            st.markdown("#### 📈 Executive Business KPIs")
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric("Total Revenue", f"${kpis.total_revenue:,.2f}")
+            c2.metric("Total Profit", f"${kpis.total_profit:,.2f}" if kpis.total_profit is not None else "N/A", delta=f"{kpis.profit_margin_pct}% Margin" if kpis.profit_margin_pct else None)
+            c3.metric("Average Order Value (AOV)", f"${kpis.average_order_value:,.2f}")
+            c4.metric("Total Customers", f"{kpis.total_customers:,}")
+            c5.metric("Repeat Purchase Rate", f"{kpis.repeat_purchase_rate}%")
+
+            # Business Insights List
+            if report.business_insights:
+                with st.expander("💡 Actionable Executive Business Insights", expanded=True):
+                    for ins in report.business_insights:
+                        st.markdown(f"- {ins}")
+
+            # Cluster Evaluation Card
+            if report.cluster_evaluation:
+                st.markdown("#### 🧪 Cluster Evaluation & Segmentation Quality")
+                ce = report.cluster_evaluation
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Algorithm", ce.algorithm)
+                m2.metric("Optimal Clusters (K)", ce.optimal_k)
+                m3.metric("Silhouette Score (higher=better)", ce.silhouette_score)
+                m4.metric("Davies-Bouldin Index (lower=better)", ce.davies_bouldin_index)
+
+            # Analysis Tabs
+            tab1, tab2, tab3 = st.tabs(["👥 RFM & Customer Segmentation", "📊 Revenue & Profit Analytics", "🚨 Churn & Lifetime Value (CLV)"])
+
+            with tab1:
+                if "customer_segments_scatter" in report.charts_plotly_json:
+                    fig_sc = go.Figure(json.loads(report.charts_plotly_json["customer_segments_scatter"]))
+                    st.plotly_chart(fig_sc, use_container_width=True)
+
+                if report.rfm_segments:
+                    st.markdown("##### RFM Persona Segment Summary Table")
+                    rfm_rows = [
+                        {
+                            "Segment Persona": s.segment_name,
+                            "Customer Count": s.customer_count,
+                            "Avg Recency (Days)": s.avg_recency_days,
+                            "Avg Frequency (Orders)": s.avg_frequency,
+                            "Avg Spend ($)": f"${s.avg_monetary_value:,.2f}",
+                            "Revenue Contribution (%)": f"{s.total_revenue_share_pct}%",
+                        }
+                        for s in report.rfm_segments
+                    ]
+                    st.dataframe(pd.DataFrame(rfm_rows), use_container_width=True)
+
+                if "rfm_distribution_bar" in report.charts_plotly_json:
+                    fig_dist = go.Figure(json.loads(report.charts_plotly_json["rfm_distribution_bar"]))
+                    st.plotly_chart(fig_dist, use_container_width=True)
+
+            with tab2:
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    if "revenue_by_segment_pie" in report.charts_plotly_json:
+                        fig_rev = go.Figure(json.loads(report.charts_plotly_json["revenue_by_segment_pie"]))
+                        st.plotly_chart(fig_rev, use_container_width=True)
+                with col_b:
+                    if "profit_by_segment_bar" in report.charts_plotly_json:
+                        fig_prof = go.Figure(json.loads(report.charts_plotly_json["profit_by_segment_bar"]))
+                        st.plotly_chart(fig_prof, use_container_width=True)
+
+                if "customer_trends_line" in report.charts_plotly_json:
+                    fig_trend = go.Figure(json.loads(report.charts_plotly_json["customer_trends_line"]))
+                    st.plotly_chart(fig_trend, use_container_width=True)
+
+            with tab3:
+                if report.churn_summary:
+                    st.markdown("##### 🚨 Customer Churn Risk Analysis")
+                    ch = report.churn_summary
+                    ch1, ch2 = st.columns(2)
+                    ch1.metric("Overall Churn Rate", f"{ch.overall_churn_rate_pct}%")
+                    ch2.metric("High Churn Risk Customers (>70%)", f"{ch.high_risk_customer_count:,}")
+
+                    if ch.top_churn_drivers:
+                        fig_ch = px.bar(
+                            x=list(ch.top_churn_drivers.keys()),
+                            y=list(ch.top_churn_drivers.values()),
+                            labels={"x": "Feature Driver", "y": "Feature Importance"},
+                            title="Top Feature Drivers of Customer Churn",
+                            template="plotly_white",
+                        )
+                        fig_ch.update_layout(height=300, margin=dict(l=20, r=20, t=40, b=20))
+                        st.plotly_chart(fig_ch, use_container_width=True)
+
+                if report.clv_summary:
+                    st.markdown("##### 💎 Customer Lifetime Value (CLV) Estimation")
+                    cl = report.clv_summary
+                    cl1, cl2, cl3 = st.columns(3)
+                    cl1.metric("Average Historical CLV", f"${cl.average_historical_clv:,.2f}")
+                    cl2.metric("Projected 12-Month CLV", f"${cl.average_projected_12m_clv:,.2f}")
+                    cl3.metric("Top CLV Segment", cl.top_clv_segment)
+
+
 elif nav_option == "System Diagnostics":
     st.header("System Diagnostics & Backend API Health")
     if health_data:
         st.json(health_data)
     else:
         st.warning("Backend API is currently offline. Running in local Streamlit mode.")
+
 

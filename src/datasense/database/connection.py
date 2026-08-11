@@ -52,6 +52,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def init_db_tables():
     """Create all declarative tables in the connected database engine."""
     try:
+        import datasense.database.models  # noqa: F401 - Register ORM models to Base.metadata
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables initialized successfully.")
     except Exception as e:
@@ -60,6 +61,7 @@ def init_db_tables():
 
 # Initialize tables on import
 init_db_tables()
+
 
 
 def get_db_session() -> Generator[Session, None, None]:
